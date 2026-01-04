@@ -1,6 +1,9 @@
 package com.example;
 
 import java.sql.*;
+import java.io.InputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 
 public class DatabaseManager {
     private static final String DB_URL = "jdbc:sqlite:restaurant.db";
@@ -11,6 +14,10 @@ public class DatabaseManager {
         try {
             connection = DriverManager.getConnection(DB_URL);
             createTables();
+
+            // Load images for existing menu items that don't have them
+            loadImagesForExistingMenuItems();
+
             System.out.println("Database initialized successfully!");
         } catch (SQLException e) {
             System.err.println("Error initializing database: " + e.getMessage());
@@ -248,6 +255,61 @@ public class DatabaseManager {
         }
     }
 
+    // Helper method to load image from resources
+    private static byte[] loadImageFromResources(String imageName) {
+        try {
+            InputStream is = DatabaseManager.class.getResourceAsStream("images/" + imageName);
+            if (is != null) {
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                byte[] buffer = new byte[1024];
+                int bytesRead;
+                while ((bytesRead = is.read(buffer)) != -1) {
+                    baos.write(buffer, 0, bytesRead);
+                }
+                is.close();
+                return baos.toByteArray();
+            } else {
+                System.err.println("Image not found: " + imageName);
+                return null;
+            }
+        } catch (IOException e) {
+            System.err.println("Error loading image " + imageName + ": " + e.getMessage());
+            return null;
+        }
+    }
+
+    // Save image to resources folder
+    public static boolean saveImageToResources(byte[] imageData, String fileName) {
+        if (imageData == null || fileName == null || fileName.isEmpty()) {
+            return false;
+        }
+
+        try {
+            // Get the path to the resources/images folder
+            // First try to find the src/main/resources path in the project
+            java.io.File currentDir = new java.io.File(System.getProperty("user.dir"));
+            java.io.File resourcesDir = new java.io.File(currentDir, "src/main/resources/com/example/images");
+
+            // Create the directory if it doesn't exist
+            if (!resourcesDir.exists()) {
+                resourcesDir.mkdirs();
+            }
+
+            // Create the file path
+            java.io.File imageFile = new java.io.File(resourcesDir, fileName);
+
+            // Write the image data to the file
+            java.nio.file.Files.write(imageFile.toPath(), imageData);
+
+            System.out.println("Image saved to resources: " + imageFile.getAbsolutePath());
+            return true;
+        } catch (IOException e) {
+            System.err.println("Error saving image to resources: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
     // Add default menu items if none exist
     private static void addDefaultMenuItems() {
         String checkQuery = "SELECT COUNT(*) FROM menu_items";
@@ -256,28 +318,37 @@ public class DatabaseManager {
                 ResultSet rs = stmt.executeQuery(checkQuery)) {
 
             if (rs.next() && rs.getInt(1) == 0) {
-                // No menu items exist, add default ones
-                String insertQuery = "INSERT INTO menu_items (name, price, available) VALUES (?, ?, ?)";
+                // No menu items exist, add default ones with images
+                String insertQuery = "INSERT INTO menu_items (name, price, available, image_data) VALUES (?, ?, ?, ?)";
 
                 try (PreparedStatement pstmt = connection.prepareStatement(insertQuery)) {
-                    // Add default menu items
+                    // Add default menu items with corresponding image files
                     Object[][] menuItems = {
-                            { "Spicy Potato", 12.00, 1 },
-                            { "Pasta", 15.00, 1 },
-                            { "Garlic Bread", 8.00, 1 },
-                            { "Burger", 14.00, 1 },
-                            { "Pizza", 18.00, 1 },
-                            { "Taco", 10.00, 1 }
+                            { "Spicy Potato", 12.00, 1, "spicy_potato.jpg" },
+                            { "Pasta", 15.00, 1, "pasta.jpg" },
+                            { "Garlic Bread", 8.00, 1, "garlic_bread.jpg" },
+                            { "Burger", 14.00, 1, "burger.jpg" },
+                            { "Pizza", 18.00, 1, "pizza.jpg" },
+                            { "Taco", 10.00, 1, "taco.jpg" }
                     };
 
                     for (Object[] item : menuItems) {
                         pstmt.setString(1, (String) item[0]);
                         pstmt.setDouble(2, (Double) item[1]);
                         pstmt.setInt(3, (Integer) item[2]);
+
+                        // Load and set image data
+                        byte[] imageData = loadImageFromResources((String) item[3]);
+                        if (imageData != null) {
+                            pstmt.setBytes(4, imageData);
+                        } else {
+                            pstmt.setNull(4, java.sql.Types.BLOB);
+                        }
+
                         pstmt.executeUpdate();
                     }
 
-                    System.out.println("Default menu items created (6 items)");
+                    System.out.println("Default menu items created with images (6 items)");
                 }
             }
         } catch (SQLException e) {
@@ -370,6 +441,43 @@ public class DatabaseManager {
         } catch (SQLException e) {
             System.err.println("Error toggling menu item availability: " + e.getMessage());
             return false;
+        }
+    }
+
+    // Update menu items with images from resources (utility method for migration)
+    public static void loadImagesForExistingMenuItems() {
+        // Map of menu item names to their corresponding image files
+        java.util.Map<String, String> imageMap = new java.util.HashMap<>();
+        imageMap.put("Spicy Potato", "spicy_potato.jpg");
+        imageMap.put("Pasta", "pasta.jpg");
+        imageMap.put("Garlic Bread", "garlic_bread.jpg");
+        imageMap.put("Burger", "burger.jpg");
+        imageMap.put("Pizza", "pizza.jpg");
+        imageMap.put("Taco", "taco.jpg");
+
+        String updateQuery = "UPDATE menu_items SET image_data = ? WHERE name = ? AND (image_data IS NULL OR length(image_data) = 0)";
+
+        try (PreparedStatement pstmt = connection.prepareStatement(updateQuery)) {
+            int updatedCount = 0;
+            for (java.util.Map.Entry<String, String> entry : imageMap.entrySet()) {
+                byte[] imageData = loadImageFromResources(entry.getValue());
+                if (imageData != null) {
+                    pstmt.setBytes(1, imageData);
+                    pstmt.setString(2, entry.getKey());
+                    int rowsAffected = pstmt.executeUpdate();
+                    if (rowsAffected > 0) {
+                        updatedCount++;
+                        System.out.println("Loaded image for: " + entry.getKey());
+                    }
+                }
+            }
+            if (updatedCount > 0) {
+                System.out.println("Successfully loaded images for " + updatedCount + " menu items");
+            } else {
+                System.out.println("No menu items needed image updates");
+            }
+        } catch (SQLException e) {
+            System.err.println("Error updating menu items with images: " + e.getMessage());
         }
     }
 

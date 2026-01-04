@@ -14,6 +14,7 @@ public class MenuItem {
     private final SimpleDoubleProperty price;
     private final SimpleBooleanProperty available;
     private byte[] imageData;
+    private String imageFileName; // For tracking the original file name
 
     public MenuItem(int id, String name, double price, boolean available, byte[] imageData) {
         this.id = new SimpleIntegerProperty(id);
@@ -85,5 +86,13 @@ public class MenuItem {
 
     public void setImageData(byte[] imageData) {
         this.imageData = imageData;
+    }
+
+    public String getImageFileName() {
+        return imageFileName;
+    }
+
+    public void setImageFileName(String imageFileName) {
+        this.imageFileName = imageFileName;
     }
 }

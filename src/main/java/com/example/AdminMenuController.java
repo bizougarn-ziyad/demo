@@ -11,6 +11,10 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Optional;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 
 public class AdminMenuController {
 
@@ -72,6 +76,10 @@ public class AdminMenuController {
 
         result.ifPresent(item -> {
             if (DatabaseManager.addMenuItem(item.getName(), item.getPrice(), item.isAvailable(), item.getImageData())) {
+                // Save image to resources folder if new image was selected
+                if (item.getImageData() != null && item.getImageFileName() != null) {
+                    DatabaseManager.saveImageToResources(item.getImageData(), item.getImageFileName());
+                }
                 loadMenu();
                 statusLabel.setText("Menu item added successfully");
             } else {
@@ -92,6 +100,10 @@ public class AdminMenuController {
         result.ifPresent(item -> {
             if (DatabaseManager.updateMenuItem(selectedItem.getId(), item.getName(), item.getPrice(),
                     item.isAvailable(), item.getImageData())) {
+                // Save image to resources folder if new image was selected
+                if (item.getImageData() != null && item.getImageFileName() != null) {
+                    DatabaseManager.saveImageToResources(item.getImageData(), item.getImageFileName());
+                }
                 loadMenu();
                 statusLabel.setText("Menu item updated successfully");
             } else {
@@ -164,6 +176,7 @@ public class AdminMenuController {
         Button browseButton = new Button("Browse Image...");
 
         final byte[][] selectedImageData = { null }; // Array to hold image data
+        final String[] selectedFileName = { null }; // Array to hold file name
 
         browseButton.setOnAction(e -> {
             FileChooser fileChooser = new FileChooser();
@@ -174,10 +187,12 @@ public class AdminMenuController {
             if (selectedFile != null) {
                 try (FileInputStream fis = new FileInputStream(selectedFile)) {
                     selectedImageData[0] = fis.readAllBytes();
+                    selectedFileName[0] = selectedFile.getName();
                     imageLabel.setText(selectedFile.getName() + " (" + (selectedImageData[0].length / 1024) + " KB)");
                 } catch (IOException ex) {
                     imageLabel.setText("Error reading image");
                     selectedImageData[0] = null;
+                    selectedFileName[0] = null;
                 }
             }
         });
@@ -221,7 +236,12 @@ public class AdminMenuController {
                         return null;
                     }
 
-                    return new MenuItem(name, price, available, selectedImageData[0]);
+                    MenuItem item = new MenuItem(name, price, available, selectedImageData[0]);
+                    // Set the file name if a new image was selected
+                    if (selectedFileName[0] != null) {
+                        item.setImageFileName(selectedFileName[0]);
+                    }
+                    return item;
                 } catch (NumberFormatException e) {
                     return null;
                 }

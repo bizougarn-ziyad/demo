@@ -58,7 +58,7 @@ public class MenuController {
         ImageView imageView = new ImageView();
         imageView.setFitWidth(150);
         imageView.setFitHeight(150);
-        imageView.setPreserveRatio(true);
+        imageView.setPreserveRatio(false); // Force all images to be the same size
 
         if (item.getImageData() != null && item.getImageData().length > 0) {
             try {
