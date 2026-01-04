@@ -75,17 +75,4 @@ public class AdminController {
             e.printStackTrace();
         }
     }
-
-    @FXML
-    private void handleSettings() {
-        try {
-            FXMLLoader loader = App.setRootWithController("admin_settings");
-            AdminSettingsController controller = loader.getController();
-            controller.setAdminCode(adminCode);
-        } catch (IOException e) {
-            statusLabel.setText("Error opening Settings");
-            statusLabel.setStyle("-fx-text-fill: #dc3545;");
-            e.printStackTrace();
-        }
-    }
 }
