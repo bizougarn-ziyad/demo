@@ -704,22 +704,6 @@ public class DatabaseManager {
         return false;
     }
 
-    // Add new admin (for future use)
-    public static boolean addAdmin(String adminCode, String password) {
-        String query = "INSERT INTO admin (admin_code, admin_password) VALUES (?, ?)";
-
-        try (PreparedStatement pstmt = connection.prepareStatement(query)) {
-            pstmt.setString(1, adminCode);
-            pstmt.setString(2, password);
-            pstmt.executeUpdate();
-            return true;
-        } catch (SQLException e) {
-            System.err.println("Error adding admin: " + e.getMessage());
-            e.printStackTrace();
-            return false;
-        }
-    }
-
     // Add new order to database
     public static boolean addOrder(String clientName, String clientNumber, String itemName,
             int quantity, double price, String orderDate) {
@@ -784,28 +768,12 @@ public class DatabaseManager {
                     return tableId;
                 } else {
                     System.out.println("No reservation found for '" + clientName + "' '" + clientNumber + "'");
-                    // Debug: list all reservations
-                    listAllReservations();
                 }
             }
         } catch (SQLException e) {
             System.err.println("Error getting client table number: " + e.getMessage());
         }
         return 0; // No reservation
-    }
-
-    // Debug method to list all reservations
-    private static void listAllReservations() {
-        try (Statement stmt = connection.createStatement();
-                ResultSet rs = stmt.executeQuery("SELECT * FROM reservations")) {
-            System.out.println("All reservations in database:");
-            while (rs.next()) {
-                System.out.println("  " + rs.getString("client_name") + " " + rs.getString("client_number")
-                        + " -> table " + rs.getInt("table_id"));
-            }
-        } catch (SQLException e) {
-            System.err.println("Error listing reservations: " + e.getMessage());
-        }
     }
 
     // Get all orders for a specific client
@@ -1068,20 +1036,6 @@ public class DatabaseManager {
         }
 
         return reservations;
-    }
-
-    // Clear all clients from the client table
-    public static boolean clearClientsTable() {
-        String query = "DELETE FROM client";
-
-        try (Statement stmt = connection.createStatement()) {
-            int rowsAffected = stmt.executeUpdate(query);
-            System.out.println("Cleared " + rowsAffected + " clients from the database");
-            return true;
-        } catch (SQLException e) {
-            System.err.println("Error clearing clients table: " + e.getMessage());
-            return false;
-        }
     }
 
     // Close database connection
